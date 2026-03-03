@@ -47,10 +47,8 @@ def _session(passcode: str) -> dict:
         "audio": {
             "input": {
                 "turn_detection": {
-                    "type": "server_vad",
-                    "threshold": 0.65,
-                    "prefix_padding_ms": 300,
-                    "silence_duration_ms": 650,
+                    "type": "semantic_vad",
+                    "eagerness": "low",
                     "create_response": True,
                     "interrupt_response": True,
                 },

@@ -123,6 +123,10 @@ export default function App() {
         );
       }
 
+      if (!sdpResponse.ok) {
+        throw new Error(`SDP exchange failed: ${sdpResponse.status}`);
+      }
+
       const answer = {
         type: "answer",
         sdp: await sdpResponse.text(),
