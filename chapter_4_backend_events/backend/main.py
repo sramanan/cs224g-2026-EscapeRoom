@@ -5,6 +5,9 @@ from openai import OpenAI
 import random
 import json
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -72,6 +75,7 @@ def _base_session(passcode: str):
 async def get_token():
     """Return an ephemeral token and passcode. Frontend uses token for WebRTC; passcode is sent to backend for tool verification."""
     passcode = str(random.randint(1000, 9999))
+    logger.info("get-token: passcode=%s", passcode)
     session = _base_session(passcode)
     secret = client.realtime.client_secrets.create(session=session)
     return {"value": secret.value, "passcode": passcode}

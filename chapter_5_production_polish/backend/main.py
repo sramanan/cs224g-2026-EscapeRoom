@@ -6,7 +6,10 @@ import random
 import json
 import asyncio
 import os
+import logging
 import websockets
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -85,6 +88,7 @@ def _session(passcode: str) -> dict:
 async def get_token():
     """Return an ephemeral token for the OpenAI Realtime API."""
     passcode = str(random.randint(1000, 9999))
+    logger.info("get-token: passcode=%s", passcode)
     secret = client.realtime.client_secrets.create(session=_session(passcode))
     return {"value": secret.value, "passcode": passcode}
 

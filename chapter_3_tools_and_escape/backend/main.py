@@ -3,6 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -69,6 +72,7 @@ async def get_token():
     # Docs: https://platform.openai.com/docs/guides/realtime-function-calling
 
     passcode = str(random.randint(1000, 9999))
+    logger.info("get-token: passcode=%s", passcode)
     session = _base_session(passcode)
     secret = client.realtime.client_secrets.create(session=session)
     return {"value": secret.value, "passcode": passcode}
