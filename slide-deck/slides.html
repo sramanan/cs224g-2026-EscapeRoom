@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workshop: Building and Scaling Realtime Voice AI Apps</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/black.css">
+  <style>
+    .reveal {
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+    }
+    .reveal .slide-background {
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%) !important;
+    }
+    .reveal .slides section.title-slide {
+      padding-top: 15%;
+    }
+    .reveal .slides section.title-slide h1 {
+      font-size: 2.2em;
+      margin-bottom: 0.3em;
+    }
+    .reveal .slides section.title-slide .course {
+      font-size: 1.3em;
+      opacity: 0.9;
+      margin-bottom: 0.5em;
+    }
+    .reveal .slides section.title-slide .presenter {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+    .reveal { font-size: 28px; }
+    .reveal h1 { font-size: 1.6em; }
+    .reveal h2 { font-size: 1.2em; }
+    .reveal h3 { font-size: 1em; }
+    .reveal p, .reveal li { font-size: 0.85em; }
+    .reveal table { font-size: 0.65em; }
+    .reveal th, .reveal td { padding: 0.25em 0.4em; border: 1px solid #555; }
+    .reveal th { background: rgba(255,255,255,0.1); }
+    .reveal ul { margin: 0.4em 0; }
+    .reveal li { margin: 0.15em 0; }
+    .reveal .slide-img { max-height: 180px; border-radius: 6px; }
+    .reveal .subtitle { font-size: 0.55em; opacity: 0.8; margin-top: 0.3em; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; text-align: left; font-size: 0.9em; }
+    .pros { color: #6f9; }
+    .cons { color: #f96; }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- Opening Title Slide -->
+      <section class="title-slide">
+        <h1>Realtime Voice AI</h1>
+        <p class="course">CS 224G 2026</p>
+        <p class="presenter">Shreeganesh Ramanan</p>
+      </section>
+
+      <!-- Setup: Clone / Fork -->
+      <section>
+        <h2>Get the repo</h2>
+        <img src="qr-repo.png" alt="QR code for github.com/sramanan/cs224g-2026-EscapeRoom" class="slide-img" style="max-height: 140px;">
+        <p>Clone or fork the workshop repository:</p>
+        <p style="margin: 1em 0;"><code style="font-size: 0.75em;">https://github.com/sramanan/cs224g-2026-EscapeRoom</code></p>
+        <ul style="text-align: left; max-width: 480px; margin: 0 auto;">
+          <li><strong>Clone:</strong> <code>git clone https://github.com/sramanan/cs224g-2026-EscapeRoom</code></li>
+          <li><strong>Fork:</strong> Fork on GitHub, then clone your fork.</li>
+        </ul>
+        <p style="margin-top: 1.5em; font-size: 0.9em;">Add your OpenAI API key: <code>cp .env.example .env</code> and set <code>OPENAI_API_KEY</code>.</p>
+        <aside class="notes">
+          Have everyone clone or fork the repo and set their API key before we start the hands-on.
+        </aside>
+      </section>
+
+      <!-- Slide 1 -->
+      <section>
+        <h1>Welcome to the Enigma Escape Room</h1>
+        <p class="subtitle">Workshop: Building and Scaling Realtime Voice AI Apps • 45 min</p>
+        <img src="image_1.png" alt="Enigma Escape Room" class="slide-img">
+        <h3>The Challenge: Talk Your Way Out</h3>
+        <p><strong>The Tech:</strong> Secure WebRTC integration with OpenAI's native audio model.</p>
+        <p><strong>Today's Goal:</strong> Transition from REST text bots to stateful, voice-driven agents.</p>
+        <aside class="notes">
+          [Time: 0:00 - 1:30]
+          Welcome, everyone. Today we are stepping away from standard text-based chat and moving into the cutting edge of human-computer interaction: Realtime Voice AI.
+          Context: The traditional approach to voice—Speech-to-Text → LLM → Text-to-Speech—is dying. We are entering the era of natively multimodal models, where the model processes audio directly.
+          The Hook: To teach you this, we aren't just building a bland assistant. Today, you are trapped in a digital library. Your guide, and your captor, is "The Enigma," an eccentric Puzzle Master built using GPT-4o.
+          Outcome: By the end of this 45 minutes, you will have built a running application where you must use your voice to solve riddles, present a passcode, and trigger a function call that digitally unlocks the door to your escape.
+          Let's look at the tech making this possible.
+        </aside>
+      </section>
+
+      <!-- Slide 2 -->
+      <section>
+        <h2>What is "Native" Realtime Voice AI?</h2>
+        <ul>
+          <li><strong>Multimodal Input/Output:</strong> Model "hears" audio directly, preserving nuance, tone, and inflection.</li>
+          <li><strong>Ultra-Low Latency:</strong> Targeted responses under 300ms (feels like a real human conversation).</li>
+          <li><strong>Interruptible (Barge-in):</strong> If you speak while the AI is talking, it stops immediately.</li>
+          <li><strong>Powered by WebRTC:</strong> Uses UDP for direct, peer-to-peer audio streaming, avoiding the buffering lag of TCP WebSockets.</li>
+        </ul>
+        <aside class="notes">
+          [Time: 1:30 - 3:30]
+          When we talk about "Realtime Voice AI" today, we mean native audio-processing.
+          Multimodal: We aren't converting audio to text first. The model hears your voice directly. It understands nuance, tone, sighs, and pacing, and synthesizes speech with matching emotion.
+          Latency: This architecture allows for ultra-low latency. We are targeting responses under 300ms, essential for natural conversation.
+          Interruptible: Crucially, this is native. If you interrupt, OpenAI's server-side VAD (Voice Activity Detection) cuts the AI's audio immediately and truncates the AI's memory of what it didn't get to finish saying, keeping its context in sync with reality.
+          To achieve this low latency and native flow, we must use WebRTC.
+        </aside>
+      </section>
+
+      <!-- Slide 3 -->
+      <section>
+        <h2>The Architecture Battle: Old vs. New</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Legacy Chained Pipeline</th>
+              <th>Native Realtime Pipeline</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Orchestration</strong></td>
+              <td>STT API → Text LLM → TTS API</td>
+              <td>Microphone → OpenAI WebRTC</td>
+            </tr>
+            <tr>
+              <td><strong>Typical Latency</strong></td>
+              <td>1 - 3+ seconds</td>
+              <td>&lt; 500ms</td>
+            </tr>
+            <tr>
+              <td><strong>Conversational Feel</strong></td>
+              <td>Robotic, "Walkie-Talkie" style</td>
+              <td>Natural flow, easy barge-in</td>
+            </tr>
+            <tr>
+              <td><strong>Context</strong></td>
+              <td>Text-only (loses tone)</td>
+              <td>Preserves emotion and accent</td>
+            </tr>
+          </tbody>
+        </table>
+        <aside class="notes">
+          [Time: 3:30 - 6:00]
+          Let's visualize the architectural shift. Look at the left side of the graphic. This is the "Legacy Chained Pipeline" developers have managed for years.
+          1. Recording audio, waiting for a silence threshold, sending it to a Transcription API (like Whisper).
+          2. Wait for the transcript, send that text to an LLM. Wait for completion or stream text.
+          3. Feed LLM text sentences into a TTS API (like ElevenLabs).
+          4. Stream audio back to the client.
+          This introduces cumulative latency at every hop—often 2 seconds or more—and tone is lost in translation to text.
+          Now look at the right side. The "New Way." The browser establishes a direct WebRTC connection to OpenAI. Audio in → Audio out. It's a single step, single model, and feels entirely natural. That is what we are building today.
+        </aside>
+      </section>
+
+      <!-- Slide 4 -->
+      <section>
+        <h2>Realtime Pros & Cons (Pragmatic View)</h2>
+        <div class="two-col">
+          <div>
+            <h3 class="pros">The Pros: UX is King</h3>
+            <ul>
+              <li><strong>Incredible UX:</strong> Imperceptible latency, true conversational flow.</li>
+              <li><strong>Simple Codebase:</strong> Replaces orchestration logic with a single persistent connection.</li>
+              <li><strong>Built-in Server VAD:</strong> Handles silence detection on the server side.</li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="cons">The Cons: Production Costs</h3>
+            <ul>
+              <li><strong>Vendor Lock-in:</strong> Limited to OpenAI's voices; cannot swap TTS/STT providers.</li>
+              <li><strong>Higher Cost:</strong> Audio tokens are significant. A single conversation can burn budget quickly.</li>
+              <li><strong>Ephemeral State:</strong> If the connection drops, short-term conversational context is instantly lost.</li>
+            </ul>
+          </div>
+        </div>
+        <aside class="notes">
+          [Time: 6:00 - 8:00]
+          Before we dive into the code, we must evaluate this tool pragmatically for a scaling production app.
+          Pros: The pros are almost entirely UX-driven. If your goal is the highest quality conversational experience, this is the lowest latency tool available. It also simplifies your stack; you manage one connection instead of orchestrating Whisper, ElevenLabs, and GPT-4.
+          Cons: Vendor Lock-in, Cost, State. This is vital for Scaling engineers. WebRTC is ephemeral. If the connection drops, the session state is gone. You must implement mechanisms on your backend to log history and inject it as context when reconnecting.
+        </aside>
+      </section>
+
+      <!-- Slide 5 -->
+      <section>
+        <h2>The Architecture of Trust (Session Tokens)</h2>
+        <img src="image_6.png" alt="Diagram: browser, FastAPI, OpenAI token flow" class="slide-img">
+        <p><strong>Security in Chapter 1:</strong></p>
+        <ol>
+          <li><strong>Frontend</strong> requests permission to start a session from <strong>Backend</strong>.</li>
+          <li><strong>Backend</strong> uses master API Key to request a short-lived <strong>Ephemeral Token</strong> from OpenAI via REST.</li>
+          <li><strong>Backend</strong> sends Ephemeral Token to <strong>Frontend</strong>.</li>
+          <li><strong>Frontend</strong> uses Ephemeral Token to establish direct <strong>WebRTC Connection</strong> to OpenAI.</li>
+        </ol>
+        <p><strong style="color: #f96;">Never expose your Master API Key in client-side code.</strong></p>
+        <aside class="notes">
+          [Time: 8:00 - 10:00]
+          Pay attention; this is the key security concept for production apps and Chapter 1.
+          In a typical REST app, your backend handles API calls. Here, WebRTC connects the client browser directly to OpenAI. If we put your master API key in the React frontend, a user could steal it instantly.
+          Instead, we use the "Architecture of Trust" pattern. Browser requests permission. FastAPI Backend calls OpenAI REST endpoint for Ephemeral Token (valid 1 minute). Backend sends token to frontend. Browser uses that temporary token for WebRTC.
+          This pattern ensures security while reaping the latency benefits of direct peer-to-peer audio streaming.
+        </aside>
+      </section>
+
+      <!-- Slide 6 -->
+      <section>
+        <h2>Modalities: Tracks vs. Channels</h2>
+        <img src="image_7.png" alt="WebRTC pipeline: Media Stream and RTCDataChannel" class="slide-img">
+        <p>The WebRTC Connection is a single "pipe" with two parallel lanes:</p>
+        <h3>Lane 1: Media Stream (Audio)</h3>
+        <ul>
+          <li>Handles microphone input and speaker output.</li>
+          <li>WebRTC automatically manages Echo Cancellation, Noise Suppression, and Jitter.</li>
+        </ul>
+        <h3>Lane 2: RTCDataChannel (JSON Logic)</h3>
+        <ul>
+          <li>Used for control events.</li>
+          <li><strong>Session is set on the backend</strong> when creating the ephemeral token (Chapters 1–3: instructions, voice, <code>unlock_door</code> tool). The client never sends <code>session.update</code>.</li>
+          <li><strong>OpenAI sends:</strong> <code>response.output_audio_transcript.delta</code> (captions), <code>response.function_call_arguments.done</code> (tool execution).</li>
+        </ul>
+        <aside class="notes">
+          [Time: 10:00 - 12:00]
+          Two parallel lanes. Lane 1: Media for mic and speaker. Lane 2: Data channel for control. In this workshop the backend sets the full session (persona, voice, tools) when it creates the token; the client just connects. Chapter 3: listen for function_call_arguments.done from the LLM.
+        </aside>
+      </section>
+
+      <!-- Slide 7 -->
+      <section>
+        <h2>Function Calling / The Win State (Chapter 3)</h2>
+        <img src="image_8.png" alt="UI showing unlock_door function call" class="slide-img">
+        <p><strong>How an LLM opens a digital door:</strong></p>
+        <ol>
+          <li><strong>Define Tool (backend):</strong> When creating the token, the session includes the <code>unlock_door</code> tool (accepts <code>code</code>) and instructions. No client <code>session.update</code>.</li>
+          <li><strong>Interrogation:</strong> Student talks to Puzzle Master across multiple turns; The Enigma reveals the code gradually.</li>
+          <li><strong>Tool Trigger:</strong> Student says the code (random each session, e.g. "4829").</li>
+          <li><strong>Server Event:</strong> LLM emits <code>response.function_call_arguments.done</code> with <code>name: "unlock_door"</code>.</li>
+          <li><strong>Client Execution (Ch 3):</strong> React intercepts this on the data channel, verifies the code, sends tool result + <code>response.create</code>, and unlocks the door UI.</li>
+        </ol>
+        <aside class="notes">
+          [Time: 12:00 - 14:00]
+          Chapter 3: the backend already put unlock_door in the session at token creation. User says the code. LLM emits function_call_arguments.done. Your job: catch it on the data channel, verify, send the tool result and response.create, update React state to unlock the door. Follow the TODOs for Chapters 1–3. You have 30 minutes.
+        </aside>
+      </section>
+
+      <!-- Slide 7b: Backend WebSockets (Chapters 4–5) -->
+      <section>
+        <h2>Backend WebSockets & Server-Side Control (Chapters 4–5)</h2>
+        <p><strong>The sideband pattern:</strong> Your server opens a second connection to the same Realtime session and can see every event, run tools, and control the conversation.</p>
+        <ul>
+          <li><strong>Same session, two connections:</strong> The browser keeps WebRTC for audio. After SDP exchange, the <code>Location</code> header gives a <code>call_id</code>. The frontend sends that to your backend; your backend opens <code>wss://api.openai.com/v1/realtime?call_id=...</code> with your API key.</li>
+          <li><strong>Tool calling on the server:</strong> When the model emits <code>response.function_call_arguments.done</code> (e.g. <code>unlock_door</code>), your backend receives it, validates the code, calls your DB or APIs, then sends the tool result and <code>response.create</code> back to OpenAI. The frontend only gets a simple <code>unlock_result</code> from your WebSocket.</li>
+          <li><strong>Control the conversation:</strong> Over the sideband you can inject instructions, update tools, or send <code>response.cancel</code>. You can do data lookups (e.g. check inventory, verify a passcode in your DB) without exposing logic to the client.</li>
+          <li><strong>Chapter 4:</strong> Scaffold with a TODO — you implement the sideband. <strong>Chapter 5:</strong> Full implementation plus production polish (visualizers, captions, guessed codes).</li>
+        </ul>
+        <p class="subtitle">Docs: <a href="https://developers.openai.com/api/docs/guides/realtime-server-controls" target="_blank" rel="noopener">Realtime server controls (sideband)</a></p>
+        <aside class="notes">
+          [Time: 14:00 - 16:00]
+          In Chapters 1–3 the client handles tool calls on the data channel. In production you often want the server to own that: the backend opens a WebSocket to the same call using the call_id, receives every event, runs tools (e.g. unlock_door, or a database lookup), and tells the frontend only the outcome. This keeps business logic and API keys on the server and lets you do data lookups, auth, and logging in one place. Chapter 4 is a scaffold where you implement this; Chapter 5 is the full app with it built in.
+        </aside>
+      </section>
+
+      <!-- Hands-on -->
+      <section data-background="#1a472a">
+        <h1>HANDS-ON WORKSHOP TIME</h1>
+        <h2>30 Minutes</h2>
+        <p>Follow the <code># TODO</code> comments for Chapters 1, 2, and 3.</p>
+        <p>Raise your hand if you hit an issue.</p>
+      </section>
+
+      <!-- Slide 8 -->
+      <section>
+        <h2>Scaling Concerns (State & Reconnection)</h2>
+        <h3>Statefulness is the Bottleneck</h3>
+        <ul>
+          <li>Realtime sessions are ephemeral; context drops with the connection.</li>
+          <li><strong>Production Requirement:</strong> Backend must log every <code>conversation.item</code> (user and assistant messages).</li>
+          <li><strong>Scaling Strategy:</strong> Backend must provide a mechanism to restore conversation history to a <em>new</em> session upon reconnection.</li>
+        </ul>
+        <h3>Monitor Cost</h3>
+        <ul>
+          <li>Audio tokens are significantly more expensive than text tokens.</li>
+          <li>Always use <code>turn_detection</code> settings carefully. Set limits in OpenAI billing dashboard.</li>
+        </ul>
+        <aside class="notes">
+          [Time: 34:00 - 37:00]
+          Great work getting through those first chapters. Scaling the Stateless way fails here. This API is stateful. If connection drops, "The Enigma" has amnesia. Backend must log conversation items and provide history dump on reconnection. Scaling isn't about infrastructure load; it's about managing conversational continuity.
+        </aside>
+      </section>
+
+      <!-- Slide 9 -->
+      <section>
+        <h2>Product & UX Polish Considerations</h2>
+        <h3>Handling "Barge-in" (Interruptibility)</h3>
+        <ul>
+          <li><strong>With WebRTC (our app):</strong> The server manages the output audio buffer. When VAD detects user speech, the server cancels the in-progress response and <em>automatically truncates</em> unplayed audio. No client <code>conversation.item.truncate</code> needed.</li>
+          <li><strong>With WebSocket:</strong> The client controls playback, so on <code>input_audio_buffer.speech_started</code> the client must stop playback and send <code>conversation.item.truncate</code> (with <code>audio_end_ms</code>) so the model knows where it was cut off.</li>
+        </ul>
+        <h3>User Feedback (Visualizers)</h3>
+        <ul>
+          <li>Voice AI must "breathe." Static UIs increase anxiety.</li>
+          <li><strong>Requirement:</strong> Implement visualizers mapping local mic and remote AI audio tracks using the Web Audio API AnalyserNode (see Chapter 5).</li>
+        </ul>
+        <aside class="notes">
+          [Time: 37:00 - 40:00]
+          With WebRTC, barge-in is server-managed: server truncates automatically. With WebSocket, the client sends truncate. UX: Chapter 5 has visualizers.
+        </aside>
+      </section>
+
+      <!-- Slide 10 -->
+      <section>
+        <h2>Scalability Metrics That Matter</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Target</th>
+              <th>Significance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>TTFT (Time to First Token/Audio)</strong></td>
+              <td>&lt; 300ms</td>
+              <td>Necessary for "human" conversational feel.</td>
+            </tr>
+            <tr>
+              <td><strong>Connection Stability</strong></td>
+              <td>99.9% (Server)</td>
+              <td>Backend bottleneck in token exchange.</td>
+            </tr>
+            <tr>
+              <td><strong>Jitter Buffer</strong></td>
+              <td>Minimized</td>
+              <td>Jitter causes audio stutter. Managed by WebRTC browser API.</td>
+            </tr>
+            <tr>
+              <td><strong>VAD Accuracy</strong></td>
+              <td>High</td>
+              <td>Low false interruptions. Low background noise trigger.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Tune VAD:</strong> Set <code>turn_detection</code> (e.g. <code>semantic_vad</code> or <code>server_vad</code>) in the session when your backend creates the token.</p>
+        <aside class="notes">
+          [Time: 40:00 - 42:00]
+          TTFT is the ultimate metric for native voice apps. Aim for sub-300ms. VAD tuning is vital: quiet room = low threshold; call center = higher threshold. If TTFT creeps up, check connection stability or VAD settings.
+        </aside>
+      </section>
+
+      <!-- Slide 11 -->
+      <section>
+        <h1>Final AMA & Close</h1>
+        <img src="image_0.png" alt="Questions?" class="slide-img">
+        <h3>Recap</h3>
+        <ol>
+          <li><strong>WebRTC</strong> is the protocol for native low-latency audio.</li>
+          <li><strong>Architecture of Trust</strong> — backend creates the token (with session: persona, voice, tools); frontend never sees the API key.</li>
+          <li><strong>Data Channel</strong> carries events (captions, <code>function_call_arguments.done</code>); <strong>Media Tracks</strong> carry audio.</li>
+          <li><strong>Backend WebSocket (sideband)</strong> lets the server join the same call to run tools, do data lookups, and control the conversation (Chapters 4–5).</li>
+          <li><strong>Scaling</strong> means managing state and reconnection history.</li>
+        </ol>
+        <p><strong>Repository: Chapter 4</strong> — Implement the sideband; <strong>Chapter 5</strong> — Full app with visualizers, captions, and backend tool handling.</p>
+        <aside class="notes">
+          [Time: 42:00 - 45:00]
+          Thank you for your time. The transition from text-based LLM orchestration to native audio via WebRTC is a generational leap in UX. The Enigma Escape Room repo is yours. Chapter 4: implement the backend sideband. Chapter 5: run the full app. Open to any final questions about building or scaling production Realtime Voice applications.
+        </aside>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/notes/notes.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      plugins: [ RevealNotes ],
+      transition: 'slide',
+      backgroundTransition: 'fade',
+      width: 1280,
+      height: 720,
+      margin: 0.02,
+      minScale: 0.2,
+      maxScale: 2.0
+    });
+  </script>
+</body>
+</html>
