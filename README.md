@@ -11,7 +11,7 @@ A voice AI workshop: the frontend shows a locked door with a red light. The AI i
 
 ## Workshop Focus
 
-Students write **backend and Realtime API code**. The frontend is provided: door UI, status light, WebRTC connection, data channel, tool handling, visualizers, captions.
+Students write **backend and Realtime API code**. The frontend is provided: door UI, status light, WebRTC connection, data channel, and (in Chapter 5) backend WebSocket integration, visualizers, and captions. Chapters 1–3 implement token and session config; Chapter 4 adds backend event handling (sideband) as a TODO; Chapter 5 is the full implementation with sideband and polish.
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ export OPENAI_API_KEY=sk-...
 ## Running a Chapter
 
 ```bash
-./scripts/run-chapter.sh 1
+./scripts/run-chapter.sh 1   # or 2, 3, 4, 5
 ```
 
 Or manually:
@@ -85,9 +85,24 @@ The frontend handles mic access, token fetch, RTCPeerConnection, and SDP exchang
 
 The frontend listens for `response.function_call_arguments.done`, checks the code against the passcode from the token response, and triggers the unlock UI + success sound.
 
-### Chapter 4: Production Polish
+### Chapter 4: Backend event handling
 
-**All implemented.** Audio level meters, live captions, and success sound are provided. Run it to see the full experience.
+**You implement (backend):** Handle tool calls on the server using a sideband WebSocket to the same Realtime session. The chapter is a scaffold with a TODO and a stub that returns "Not implemented"; you add the real logic.
+
+- Frontend still uses WebRTC for audio. After the SDP exchange, the response `Location` header contains a `call_id`. The frontend connects to your backend WebSocket (`/ws`), then sends `{ type: "register_call", call_id, passcode }`.
+- **Your backend:** Open a WebSocket to `wss://api.openai.com/v1/realtime?call_id=<call_id>` with your API key. Receive events; on `response.function_call_arguments.done` for `unlock_door`, verify the code against `passcode`, send the tool result and `response.create` to OpenAI, and send `{ type: "unlock_result", success }` to the frontend.
+- This keeps tool execution and business logic on the server instead of the client.
+
+Docs: [Realtime server controls (sideband)](https://developers.openai.com/api/docs/guides/realtime-server-controls).
+
+### Chapter 5: Production Polish (full implementation)
+
+**All implemented.** This is the complete app: backend sideband (same pattern as Chapter 4, but fully coded) plus production polish.
+
+- **Backend:** `/get-token` returns token and passcode; `/ws` accepts `register_call`, opens a sideband WebSocket to OpenAI, handles `unlock_door` on the server, and sends `unlock_result` to the frontend.
+- **Frontend:** Connects to backend `/ws` with `call_id` and passcode, receives `unlock_result` (no client-side tool handling). Keeps WebRTC for audio and the data channel for captions and disconnect-after-unlock. Audio level meters, live captions, and success sound are included.
+
+Run Chapter 5 to see the full experience.
 
 ## Resetting a Chapter
 
@@ -99,22 +114,54 @@ Restores the chapter to its original scaffold via `git checkout`.
 
 ## Architecture
 
+### Chapters 1–3: Client-side tool handling
+
+The browser talks to your server only for the token; audio and Realtime events go directly between browser and OpenAI. The frontend handles tool calls on the data channel.
+
 ```
 Browser                          Your Server              OpenAI
   |                                  |                       |
   |-- GET /get-token --------------->|                       |
   |                                  |-- POST /realtime/     |
   |                                  |   client_secrets ---->|
-  |                                  |<-- { value: ek_... } -|
-  |<-- { value: ek_... } -----------|                        |
+  |                                  |<-- { value, passcode }|
+  |<-- { value, passcode } ---------|                        |
   |                                                          |
-  |-- POST /realtime/calls (SDP offer, Bearer ek_...) ----->|
-  |<-- SDP answer ------------------------------------------|
+  |-- POST /realtime/calls (SDP offer, Bearer token) ------>|
+  |<-- SDP answer + Location (call_id) ---------------------|
   |                                                          |
-  |<=== WebRTC audio + RTCDataChannel (JSON events) =======>|
+  |<=== WebRTC audio + RTCDataChannel (events) =============>|
+  |     (frontend handles response.function_call_arguments   |
+  |      .done, sends tool result + response.create)         |
 ```
 
 Session config (instructions, voice, tools) is set when creating the client secret on the backend.
+
+### Chapters 4–5: Backend event handling (sideband)
+
+The frontend still uses WebRTC for audio and the data channel for captions and lifecycle. Tool execution moves to the backend: the frontend registers the call with the backend over a WebSocket; the backend opens a sideband WebSocket to the same Realtime session and handles `unlock_door`, then notifies the frontend with `unlock_result`.
+
+```
+Browser                          Your Server                    OpenAI
+  |                                  |                              |
+  |-- GET /get-token --------------->|                              |
+  |<-- { value, passcode } ----------|                              |
+  |                                 |                              |
+  |-- POST /realtime/calls (SDP) --------------------------------->|
+  |<-- SDP answer + Location (call_id) ----------------------------|
+  |                                 |                              |
+  |-- WS /ws --- register_call ----->|                              |
+  |   (call_id, passcode)            |-- WS wss://.../realtime? --->|
+  |                                  |    call_id=... (sideband)    |
+  |<=== WebRTC audio + data channel (captions, response.done) =====>|
+  |                                  |<-- response.function_call_ --|
+  |                                  |    arguments.done (unlock)   |
+  |                                  |-- tool result + response. --->|
+  |                                  |    create                    |
+  |<-- unlock_result ----------------|                              |
+```
+
+Chapter 4 is a scaffold (you implement the sideband); Chapter 5 is the full implementation with this architecture plus production polish.
 
 ## Frontend Overview (for learning)
 
@@ -130,11 +177,10 @@ The frontend is provided so you can focus on backend and Realtime API code. Here
 
 ### Data channel
 
-The `oai-events` channel carries JSON events. The frontend listens with `dc.addEventListener("message", ...)` and parses `JSON.parse(e.data)`. It only reacts to:
+The `oai-events` channel carries JSON events. The frontend listens with `dc.addEventListener("message", ...)` and parses `JSON.parse(e.data)`.
 
-- **`response.function_call_arguments.done`** — Tool call finished. If `name === "unlock_door"`, it parses `arguments` and checks `code` against the passcode from the token response.
-- **`response.output_audio_transcript.delta`** (Ch4) — Appends `event.delta` to the caption text.
-- **`response.created`** (Ch4) — Clears captions when a new response starts.
+- **Chapters 1–3:** Reacts to **`response.function_call_arguments.done`** — if `name === "unlock_door"`, parses `arguments`, checks `code` against the passcode from the token response, then sends the tool result and `response.create` on the data channel.
+- **Chapters 4–5:** Tool handling is on the backend; the frontend connects to backend `/ws`, sends `register_call` with `call_id` and passcode, and receives **`unlock_result`** from the WebSocket. The data channel is still used for **`response.output_audio_transcript.delta`** (captions), **`response.created`** (clear captions), and **`response.done`** (disconnect after unlock).
 
 ### Unlock behavior
 
@@ -144,7 +190,7 @@ When the code is correct, the frontend:
 - Calls `playSuccessSound()` — uses the Web Audio API to play a simple two-tone chime.
 - Shows a success banner.
 
-### Chapter 4: Visualizers and captions
+### Chapter 5: Visualizers and captions
 
 - **AnalyserNode** — `createMediaStreamSource()` + `createAnalyser()` connect the mic and remote audio to the Web Audio API.
 - **Level meters** — `requestAnimationFrame` + `getByteFrequencyData()` drive canvas bars for local and remote audio levels.
@@ -153,6 +199,7 @@ When the code is correct, the frontend:
 ## Resources
 
 - [OpenAI Realtime API with WebRTC](https://developers.openai.com/api/docs/guides/realtime-webrtc/)
+- [Realtime server controls (sideband)](https://developers.openai.com/api/docs/guides/realtime-server-controls) — Chapters 4–5
 - [Voice activity detection (VAD) & barge-in](https://developers.openai.com/api/docs/guides/realtime-vad/)
 - [Realtime Function Calling](https://platform.openai.com/docs/guides/realtime-function-calling)
 - [Realtime Conversations Guide](https://developers.openai.com/api/docs/guides/realtime-conversations)

@@ -5,16 +5,18 @@ CHAPTERS=(
   chapter_1_connection
   chapter_2_context_and_persona
   chapter_3_tools_and_escape
-  chapter_4_production_polish
+  chapter_4_backend_events
+  chapter_5_production_polish
 )
 
-if [[ $# -lt 1 ]] || [[ "$1" -lt 1 ]] || [[ "$1" -gt 4 ]]; then
-  echo "Usage: $0 <chapter_number>  (1-4)"
+if [[ $# -lt 1 ]] || [[ "$1" -lt 1 ]] || [[ "$1" -gt 5 ]]; then
+  echo "Usage: $0 <chapter_number>  (1-5)"
   echo ""
   echo "  1  Connection"
   echo "  2  Context & Persona"
   echo "  3  Tools & Escape"
-  echo "  4  Production Polish"
+  echo "  4  Backend event handling"
+  echo "  5  Production Polish"
   exit 1
 fi
 
@@ -46,7 +48,7 @@ cd "$ROOT_DIR/$CHAPTER_DIR/backend"
 uv sync --quiet
 
 echo "[backend] Starting FastAPI on http://localhost:8000"
-uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000 &
+(cd "$ROOT_DIR/$CHAPTER_DIR/backend" && uv run python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000) &
 BACKEND_PID=$!
 
 echo ""

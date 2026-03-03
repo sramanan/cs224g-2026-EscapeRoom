@@ -7,4 +7,5 @@ dependencies = [
     "uvicorn[standard]",
     "openai",
     "python-dotenv",
+    "websockets",
 ]

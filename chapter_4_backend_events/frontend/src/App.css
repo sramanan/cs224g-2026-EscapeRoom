@@ -25,8 +25,7 @@ body.unlocked {
 .container {
   text-align: center;
   padding: 2rem;
-  max-width: 480px;
-  width: 100%;
+  max-width: 420px;
 }
 
 .door {
@@ -111,29 +110,6 @@ body.unlocked h1 {
   border: 1px solid #4ade80;
 }
 
-.visualizers {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin: 1rem 0;
-}
-
-.visualizer {
-  text-align: center;
-}
-
-.visualizer canvas {
-  display: block;
-  margin: 0.5rem auto 0;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.visualizer label {
-  font-size: 0.8rem;
-  color: #888;
-}
-
 button {
   padding: 0.75rem 2rem;
   font-size: 1rem;
@@ -152,16 +128,4 @@ button:hover {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.captions {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.3);
-  min-height: 3rem;
-  font-style: italic;
-  color: #bbb;
-  line-height: 1.5;
-  font-size: 0.9rem;
 }

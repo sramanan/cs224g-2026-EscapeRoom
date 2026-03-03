@@ -20,18 +20,26 @@ function playSuccessSound() {
   } catch (_) {}
 }
 
+const CHARS_PER_MS = 0.12; // ~speech rate for throttled assistant text
+
 export default function App() {
   const [status, setStatus] = useState("Click connect to enter the room...");
   const [isConnected, setIsConnected] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
-  const [caption, setCaption] = useState("");
+  const [transcriptSegments, setTranscriptSegments] = useState([]);
+  const [guessedCodes, setGuessedCodes] = useState([]);
   const audioRef = useRef(null);
   const localCanvasRef = useRef(null);
   const remoteCanvasRef = useRef(null);
   const dcRef = useRef(null);
   const pcRef = useRef(null);
   const streamRef = useRef(null);
+  const sidebandWsRef = useRef(null);
   const pendingDisconnectRef = useRef(false);
+  const assistantBufferRef = useRef("");
+  const assistantRevealedRef = useRef(0);
+  const throttleIntervalRef = useRef(null);
+  const userBufferRef = useRef("");
 
   useEffect(() => {
     document.body.className = isUnlocked ? "unlocked" : "locked";
@@ -39,6 +47,8 @@ export default function App() {
 
   async function connect() {
     setStatus("Connecting...");
+    setTranscriptSegments([]);
+    setGuessedCodes([]);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -102,58 +112,76 @@ export default function App() {
       const dc = pc.createDataChannel("oai-events");
       dcRef.current = dc;
 
+      function stopThrottle() {
+        if (throttleIntervalRef.current) {
+          clearInterval(throttleIntervalRef.current);
+          throttleIntervalRef.current = null;
+        }
+      }
+
+      function startThrottle() {
+        if (throttleIntervalRef.current) return;
+        const start = Date.now();
+        throttleIntervalRef.current = setInterval(() => {
+          const elapsed = Date.now() - start;
+          const targetReveal = Math.floor(elapsed * CHARS_PER_MS);
+          const buf = assistantBufferRef.current;
+          if (assistantRevealedRef.current >= buf.length) {
+            stopThrottle();
+            return;
+          }
+          const toReveal = Math.min(targetReveal - assistantRevealedRef.current, buf.length - assistantRevealedRef.current);
+          if (toReveal <= 0) return;
+          assistantRevealedRef.current += toReveal;
+          const revealed = buf.slice(0, assistantRevealedRef.current);
+          setTranscriptSegments((prev) => {
+            const next = [...prev];
+            if (next.length > 0 && next[next.length - 1].speaker === "assistant") {
+              next[next.length - 1] = { ...next[next.length - 1], text: revealed };
+            }
+            return next;
+          });
+        }, 50);
+      }
+
       dc.addEventListener("message", (e) => {
         const event = JSON.parse(e.data);
-
-        if (event.type === "response.function_call_arguments.done") {
-          if (event.name === "unlock_door") {
-            const args = JSON.parse(event.arguments);
-            const callId = event.call_id;
-            const success = args.code === passcode;
-
-            if (success) {
-              setIsUnlocked(true);
-              setStatus("The door swings open — you're free!");
-              playSuccessSound();
-              pendingDisconnectRef.current = true;
-            } else {
-              setStatus(`Wrong code: "${args.code}" — keep searching for clues!`);
-            }
-
-            if (dc.readyState === "open" && callId) {
-              dc.send(
-                JSON.stringify({
-                  type: "conversation.item.create",
-                  item: {
-                    type: "function_call_output",
-                    call_id: callId,
-                    output: JSON.stringify({
-                      success,
-                      message: success ? "The door has been unlocked." : "Incorrect code.",
-                    }),
-                  },
-                })
-              );
-              dc.send(JSON.stringify({ type: "response.create" }));
-            }
-          }
-        }
-
         if (event.type === "response.done" && pendingDisconnectRef.current) {
           pendingDisconnectRef.current = false;
+          stopThrottle();
           pcRef.current?.close();
           streamRef.current?.getTracks().forEach((t) => t.stop());
           streamRef.current = null;
           pcRef.current = null;
           dcRef.current = null;
+          sidebandWsRef.current?.close();
+          sidebandWsRef.current = null;
           setIsConnected(false);
         }
-
-        if (event.type === "response.output_audio_transcript.delta") {
-          setCaption((prev) => prev + event.delta);
+        if (event.type === "conversation.item.input_audio_transcription.delta") {
+          userBufferRef.current += event.delta ?? "";
+        }
+        if (event.type === "conversation.item.input_audio_transcription.completed") {
+          const text = (event.transcript ?? userBufferRef.current).trim();
+          userBufferRef.current = "";
+          if (text) {
+            setTranscriptSegments((prev) => [...prev, { speaker: "user", text }]);
+          }
         }
         if (event.type === "response.created") {
-          setCaption("");
+          const pendingUser = userBufferRef.current.trim();
+          if (pendingUser) {
+            setTranscriptSegments((prev) => [...prev, { speaker: "user", text: pendingUser }]);
+            userBufferRef.current = "";
+          }
+          stopThrottle();
+          assistantBufferRef.current = "";
+          assistantRevealedRef.current = 0;
+          setTranscriptSegments((prev) => [...prev, { speaker: "assistant", text: "" }]);
+        }
+        if (event.type === "response.output_audio_transcript.delta") {
+          assistantBufferRef.current += event.delta ?? "";
+          startThrottle();
         }
       });
 
@@ -171,6 +199,39 @@ export default function App() {
           },
         }
       );
+
+      const location = sdpResponse.headers.get("Location");
+      const callId = location ? location.split("/").pop() : null;
+      if (!callId) {
+        throw new Error("No call_id in SDP response Location");
+      }
+
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsHost = window.location.host;
+      const sidebandWs = new WebSocket(`${wsProtocol}//${wsHost}/ws`);
+      sidebandWsRef.current = sidebandWs;
+      await new Promise((resolve, reject) => {
+        sidebandWs.onopen = resolve;
+        sidebandWs.onerror = () => reject(new Error("Sideband WebSocket failed"));
+      });
+      sidebandWs.send(JSON.stringify({ type: "register_call", call_id: callId, passcode }));
+
+      sidebandWs.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "unlock_result") {
+          if (msg.guessed_code) {
+            setGuessedCodes((prev) => [...prev, msg.guessed_code]);
+          }
+          if (msg.success) {
+            setIsUnlocked(true);
+            setStatus("The door swings open — you're free!");
+            playSuccessSound();
+            pendingDisconnectRef.current = true;
+          } else {
+            setStatus("Wrong code — keep searching for clues!");
+          }
+        }
+      };
 
       const answer = {
         type: "answer",
@@ -200,7 +261,7 @@ export default function App() {
           ? "You Escaped!"
           : "The Puzzle Master's Escape Room"}
       </h1>
-      <p className="subtitle">Chapter 4 — Production Polish</p>
+      <p className="subtitle">Chapter 5 — Production Polish</p>
 
       <div className="status">{status}</div>
 
@@ -223,7 +284,28 @@ export default function App() {
         {isConnected ? "Connected" : "Connect"}
       </button>
 
-      <div className="captions">{caption || "Captions will appear here..."}</div>
+      {guessedCodes.length > 0 && (
+        <div className="guessed-codes">
+          <span className="guessed-codes-label">Guessed:</span>{" "}
+          {guessedCodes.map((code, i) => (
+            <span key={i} className="guessed-code">
+              {code}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="captions transcript">
+        {transcriptSegments.length === 0 ? (
+          "Captions will appear here..."
+        ) : (
+          transcriptSegments.map((seg, i) => (
+            <div key={i} className={`transcript-line transcript-${seg.speaker}`}>
+              <span className="transcript-speaker">{seg.speaker === "user" ? "You" : "The Enigma"}:</span> {seg.text}
+            </div>
+          ))
+        )}
+      </div>
 
       <audio ref={audioRef} autoPlay />
     </div>

@@ -5,11 +5,12 @@ CHAPTERS=(
   chapter_1_connection
   chapter_2_context_and_persona
   chapter_3_tools_and_escape
-  chapter_4_production_polish
+  chapter_4_backend_events
+  chapter_5_production_polish
 )
 
-if [[ $# -lt 1 ]] || [[ "$1" -lt 1 ]] || [[ "$1" -gt 4 ]]; then
-  echo "Usage: $0 <chapter_number>  (1-4)"
+if [[ $# -lt 1 ]] || [[ "$1" -lt 1 ]] || [[ "$1" -gt 5 ]]; then
+  echo "Usage: $0 <chapter_number>  (1-5)"
   echo ""
   echo "Resets a chapter folder to its original scaffold state."
   echo "Your current work will be OVERWRITTEN. Use git to save first."
