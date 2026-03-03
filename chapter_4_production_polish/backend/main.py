@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+import random
 
 load_dotenv()
 
@@ -17,25 +18,35 @@ app.add_middleware(
 client = OpenAI()
 
 
-def _session() -> dict:
+def _session(passcode: str) -> dict:
     """Full session: persona + semantic VAD/barge-in + unlock_door — Chapters 2–3 (completed)."""
     return {
         "type": "realtime",
         "model": "gpt-realtime",
         "instructions": (
-            "You are The Enigma, an eccentric Puzzle Master who controls this escape room. "
+            f"You are The Enigma, an eccentric Puzzle Master who controls this escape room. "
             "The user is trapped. Describe the room when asked. "
             "Guide them to inspect items: a dusty bookshelf, a grandfather clock. "
-            "Give cryptic riddles. The 4-digit passcode is 7314 — encode it in your clues "
-            "(e.g., page numbers, clock hands). When the user tells you a code, call "
-            "unlock_door with that code."
+            f"Give cryptic riddles. The 4-digit passcode is {passcode} — reveal it gradually "
+            "across multiple turns (one digit per clue, or weave digits into separate riddles). "
+            "Never give all four digits in one sentence. When the user tells you a code, call "
+            "unlock_door with that code. "
+            "When you receive unlock_door result with success true, announce dramatically that "
+            "the door swings open and they have escaped. Keep it brief—one or two sentences. "
+            "If success is false, tell them the code was wrong and to keep searching."
         ),
-        "voice": "onyx",
-        "turn_detection": {
-            "type": "semantic_vad",
-            "eagerness": "auto",
-            "create_response": True,
-            "interrupt_response": True,
+        "audio": {
+            "input": {
+                "turn_detection": {
+                    "type": "semantic_vad",
+                    "eagerness": "auto",
+                    "create_response": True,
+                    "interrupt_response": True,
+                }
+            },
+            "output": {
+                "voice": "cedar",  # Supported: alloy, ash, ballad, coral, echo, sage, shimmer, verse, marin, cedar
+            },
         },
         "tools": [
             {
@@ -61,5 +72,6 @@ def _session() -> dict:
 @app.get("/get-token")
 async def get_token():
     """Return an ephemeral token for the OpenAI Realtime API."""
-    secret = client.realtime.client_secrets.create(session=_session())
-    return {"value": secret.value}
+    passcode = str(random.randint(1000, 9999))
+    secret = client.realtime.client_secrets.create(session=_session(passcode))
+    return {"value": secret.value, "passcode": passcode}

@@ -22,25 +22,12 @@ async def get_token():
     directly with OpenAI. The real API key never reaches the browser.
     """
 
-    # ──────────────────────────────────────────────────────────────
     # TODO: CHAPTER 1 — Create an ephemeral client secret
     #
-    # 1. Import the OpenAI client:
-    #        from openai import OpenAI
-    #        client = OpenAI()          # uses OPENAI_API_KEY env var
-    #
-    # 2. Request an ephemeral token:
-    #        secret = client.realtime.client_secrets.create(
-    #            session={
-    #                "type": "realtime",
-    #                "model": "gpt-realtime",
-    #            }
-    #        )
-    #
-    # 3. Return the token value:
-    #        return {"value": secret.value}
+    # Use the OpenAI client to request a short-lived token for the Realtime API.
+    # The session config needs type "realtime" and model "gpt-realtime".
+    # Return the token value as {"value": "<token>"}.
     #
     # Docs: https://platform.openai.com/docs/api-reference/realtime-client-secrets
-    # ──────────────────────────────────────────────────────────────
 
     return {"error": "Not implemented — complete the TODO above!"}

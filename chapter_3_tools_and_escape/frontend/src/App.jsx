@@ -26,6 +26,9 @@ export default function App() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const audioRef = useRef(null);
   const dcRef = useRef(null);
+  const pcRef = useRef(null);
+  const streamRef = useRef(null);
+  const pendingDisconnectRef = useRef(false);
 
   useEffect(() => {
     document.body.className = isUnlocked ? "unlocked" : "locked";
@@ -36,12 +39,15 @@ export default function App() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
       const tokenRes = await fetch("/get-token");
       const data = await tokenRes.json();
       const token = data.value;
+      const passcode = data.passcode ?? "7314";  // fallback for older backend
 
       const pc = new RTCPeerConnection();
+      pcRef.current = pc;
       pc.ontrack = (e) => {
         audioRef.current.srcObject = e.streams[0];
       };
@@ -56,14 +62,45 @@ export default function App() {
         if (event.type === "response.function_call_arguments.done") {
           if (event.name === "unlock_door") {
             const args = JSON.parse(event.arguments);
-            if (args.code === "7314") {
+            const callId = event.call_id;
+            const success = args.code === passcode;
+
+            if (success) {
               setIsUnlocked(true);
               setStatus("The door swings open — you're free!");
               playSuccessSound();
+              pendingDisconnectRef.current = true;
             } else {
               setStatus(`Wrong code: "${args.code}" — keep searching for clues!`);
             }
+
+            if (dc.readyState === "open" && callId) {
+              dc.send(
+                JSON.stringify({
+                  type: "conversation.item.create",
+                  item: {
+                    type: "function_call_output",
+                    call_id: callId,
+                    output: JSON.stringify({
+                      success,
+                      message: success ? "The door has been unlocked." : "Incorrect code.",
+                    }),
+                  },
+                })
+              );
+              dc.send(JSON.stringify({ type: "response.create" }));
+            }
           }
+        }
+
+        if (event.type === "response.done" && pendingDisconnectRef.current) {
+          pendingDisconnectRef.current = false;
+          pcRef.current?.close();
+          streamRef.current?.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+          pcRef.current = null;
+          dcRef.current = null;
+          setIsConnected(false);
         }
       });
 

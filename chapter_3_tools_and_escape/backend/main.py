@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+import random
 
 load_dotenv()
 
@@ -17,25 +18,33 @@ app.add_middleware(
 client = OpenAI()
 
 
-def _base_session():
+def _base_session(passcode: str):
     """Session with The Enigma persona + semantic VAD/barge-in — Chapter 2 (completed)."""
     return {
         "type": "realtime",
         "model": "gpt-realtime",
         "instructions": (
-            "You are The Enigma, an eccentric Puzzle Master who controls this escape room. "
+            f"You are The Enigma, an eccentric Puzzle Master who controls this escape room. "
             "The user is trapped. Describe the room when asked. "
             "Guide them to inspect items: a dusty bookshelf, a grandfather clock. "
-            "Give cryptic riddles. The 4-digit passcode is 7314 — encode it in your clues "
-            "(e.g., page numbers, clock hands). When the user tells you a code, call "
-            "unlock_door with that code."
+            f"Give cryptic riddles. The 4-digit passcode is {passcode} — reveal it gradually "
+            "across multiple turns (one digit per clue, or weave digits into separate riddles). "
+            "Never give all four digits in one sentence. When the user tells you a code, call "
+            "unlock_door with that code. "
+            "When you receive unlock_door result with success true, announce dramatically that "
+            "the door swings open and they have escaped. Keep it brief. If success is false, tell "
+            "them the code was wrong."
         ),
-        "voice": "onyx",
-        "turn_detection": {
-            "type": "semantic_vad",
-            "eagerness": "auto",
-            "create_response": True,
-            "interrupt_response": True,
+        "audio": {
+            "input": {
+                "turn_detection": {
+                    "type": "semantic_vad",
+                    "eagerness": "auto",
+                    "create_response": True,
+                    "interrupt_response": True,
+                }
+            },
+            "output": {"voice": "cedar"},
         },
     }
 
@@ -44,39 +53,20 @@ def _base_session():
 async def get_token():
     """Return an ephemeral token for the OpenAI Realtime API."""
 
-    # ──────────────────────────────────────────────────────────────
     # TODO: CHAPTER 3 — Register the unlock_door tool
     #
-    # Add a "tools" array and "tool_choice" to the session so The
-    # Enigma can call unlock_door when the user speaks the code:
+    # 1. Generate a random 4-digit passcode (e.g. random.randint(1000, 9999)).
     #
-    #   session = {
-    #       ..._base_session(),
-    #       "tools": [
-    #           {
-    #               "type": "function",
-    #               "name": "unlock_door",
-    #               "description": "Unlock the door when the user provides the correct 4-digit passcode",
-    #               "parameters": {
-    #                   "type": "object",
-    #                   "properties": {
-    #                       "code": {
-    #                           "type": "string",
-    #                           "description": "The 4-digit code the user spoke",
-    #                       },
-    #                   },
-    #                   "required": ["code"],
-    #               },
-    #           },
-    #       ],
-    #       "tool_choice": "auto",
-    #   }
+    # 2. Add a "tools" array with the unlock_door function: it accepts a "code" parameter
+    #    (string, 4-digit code). Set "tool_choice" to "auto".
     #
-    # Update instructions to say: "When the user tells you a code, call unlock_door with it."
+    # 3. Ensure instructions tell The Enigma to call unlock_door when the user speaks a code.
+    #
+    # 4. Return both the token "value" AND the "passcode" so the frontend can verify submissions.
     #
     # Docs: https://platform.openai.com/docs/guides/realtime-function-calling
-    # ──────────────────────────────────────────────────────────────
 
-    session = _base_session()
+    passcode = str(random.randint(1000, 9999))
+    session = _base_session(passcode)
     secret = client.realtime.client_secrets.create(session=session)
-    return {"value": secret.value}
+    return {"value": secret.value, "passcode": passcode}

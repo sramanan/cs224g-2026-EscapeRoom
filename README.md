@@ -72,17 +72,18 @@ The frontend handles mic access, token fetch, RTCPeerConnection, and SDP exchang
 
 ### Chapter 2: Context & Persona
 
-**You implement (backend):** Add The Enigma's persona and turn detection to the session config passed to `client_secrets.create()`:
+**You implement (backend):** Add The Enigma's persona and turn detection to the session config:
 
-- `instructions` — describe room, guide to inspect bookshelf/clock, give riddles
-- `voice: "onyx"`
-- `turn_detection` — semantic VAD with `interrupt_response: true` for barge-in (user can interrupt The Enigma mid-sentence)
+- Generate a random 4-digit passcode (e.g. `random.randint(1000, 9999)`).
+- `instructions` — describe room, guide to inspect bookshelf/clock, give riddles. Reveal the passcode gradually across multiple turns (one digit per clue); never give all four digits in one sentence.
+- `audio.output.voice: "cedar"` (or alloy, ash, ballad, coral, echo, sage, shimmer, verse, marin)
+- `audio.input.turn_detection` — semantic VAD with `interrupt_response: true` for barge-in.
 
 ### Chapter 3: Tools & Escape
 
-**You implement (backend):** Register the `unlock_door` tool in the session: `tools` array with a function that accepts `code`, plus `tool_choice: "auto"`. Update instructions so The Enigma calls `unlock_door` when the user gives a code.
+**You implement (backend):** Register the `unlock_door` tool in the session: `tools` array with a function that accepts `code`, plus `tool_choice: "auto"`. Generate a random passcode and include it in instructions. Return both `value` and `passcode` from `get-token` so the frontend can verify submissions.
 
-The frontend listens for `response.function_call_arguments.done`, checks the code, and triggers the unlock UI + success sound.
+The frontend listens for `response.function_call_arguments.done`, checks the code against the passcode from the token response, and triggers the unlock UI + success sound.
 
 ### Chapter 4: Production Polish
 
@@ -131,7 +132,7 @@ The frontend is provided so you can focus on backend and Realtime API code. Here
 
 The `oai-events` channel carries JSON events. The frontend listens with `dc.addEventListener("message", ...)` and parses `JSON.parse(e.data)`. It only reacts to:
 
-- **`response.function_call_arguments.done`** — Tool call finished. If `name === "unlock_door"`, it parses `arguments` and checks `code === "7314"`.
+- **`response.function_call_arguments.done`** — Tool call finished. If `name === "unlock_door"`, it parses `arguments` and checks `code` against the passcode from the token response.
 - **`response.output_audio_transcript.delta`** (Ch4) — Appends `event.delta` to the caption text.
 - **`response.created`** (Ch4) — Clears captions when a new response starts.
 

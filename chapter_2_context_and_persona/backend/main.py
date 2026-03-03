@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+import random
 
 load_dotenv()
 
@@ -29,37 +30,21 @@ def _base_session():
 async def get_token():
     """Return an ephemeral token for the OpenAI Realtime API."""
 
-    # ──────────────────────────────────────────────────────────────
     # TODO: CHAPTER 2 — Add The Enigma's persona and turn detection
     #
-    # 1. Add "instructions" and "voice" so The Enigma comes to life:
+    # 1. Generate a random 4-digit passcode (e.g. random.randint(1000, 9999)).
     #
-    #   "instructions": (
-    #       "You are The Enigma, an eccentric Puzzle Master who controls "
-    #       "this escape room. The user is trapped. Describe the room when asked. "
-    #       "Guide them to inspect items: a dusty bookshelf, a grandfather clock. "
-    #       "Give cryptic riddles. The 4-digit passcode is 7314 — encode it in "
-    #       "your clues (e.g., page numbers, clock hands). When they tell you "
-    #       "a code, you will eventually call unlock_door with it."
-    #   ),
-    #   "voice": "onyx",
+    # 2. Add "instructions" describing The Enigma: eccentric Puzzle Master, describes
+    #    the room (bookshelf, grandfather clock), gives cryptic riddles. Include the
+    #    passcode in the instructions so The Enigma knows it. Reveal it gradually
+    #    across multiple turns—one digit per clue, or weave digits into separate
+    #    riddles. Never give all four digits in one sentence.
     #
-    # 2. Add "turn_detection" with semantic VAD and barge-in so the
-    #    user can interrupt The Enigma mid-sentence:
-    #
-    #   "turn_detection": {
-    #       "type": "semantic_vad",
-    #       "eagerness": "auto",
-    #       "create_response": True,
-    #       "interrupt_response": True,
-    #   },
-    #
-    #   - semantic_vad: chunks based on meaning, not just silence
-    #   - interrupt_response: lets user barge in and stop the AI
+    # 3. Add "audio" with input.turn_detection (semantic_vad, create_response,
+    #    interrupt_response) and output.voice ("cedar" or alloy/ash/shimmer/etc).
     #
     # Docs: https://platform.openai.com/docs/api-reference/realtime-client-secrets
     # VAD: https://developers.openai.com/api/docs/guides/realtime-vad/
-    # ──────────────────────────────────────────────────────────────
 
     session = _base_session()
     secret = client.realtime.client_secrets.create(session=session)

@@ -46,7 +46,7 @@ cd "$ROOT_DIR/$CHAPTER_DIR/backend"
 uv sync --quiet
 
 echo "[backend] Starting FastAPI on http://localhost:8000"
-uv run uvicorn main:app --reload --port 8000 &
+uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000 &
 BACKEND_PID=$!
 
 echo ""
