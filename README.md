@@ -107,7 +107,7 @@ Run Chapter 5 to see the full experience.
 ### Conversation behavior (Chapters 3–5)
 
 - **Agent speaks first:** When the call connects, the frontend sends `response.create` on the data channel after a short delay (~1.8s) so the connection and mic can stabilize. The Enigma then greets the user and describes the room without waiting for them to speak. The session instructions tell the model to speak first when the conversation begins.
-- **VAD and barge-in:** The session uses `semantic_vad` with **`eagerness: "low"`** so the model waits longer before treating the user as done—reducing false turn-taking and mid-sentence cuts. **`interrupt_response: true`** stays enabled so the user can still interrupt The Enigma (barge-in).
+- **VAD and barge-in:** The session uses **`server_vad`** (Ch5) or **`semantic_vad`** (Ch3–4) with **`interrupt_response: true`** so the user can interrupt The Enigma. With **WebRTC**, the server owns the output buffer and automatically truncates unplayed audio on interrupt; the client does not send `conversation.item.truncate` (that’s only required for WebSocket connections where the client controls playback). See [Realtime conversations](https://developers.openai.com/api/docs/guides/realtime-conversations) — “Interruption and Truncation”.
 
 ## Resetting a Chapter
 

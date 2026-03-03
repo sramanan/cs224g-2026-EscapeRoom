@@ -274,6 +274,9 @@ export default function App() {
       <p className="subtitle">Chapter 5 — Production Polish</p>
 
       <div className="status">{status}</div>
+      {isConnected && (
+        <p className="tip">Tip: Use headphones so the mic doesn&apos;t pick up The Enigma&apos;s voice.</p>
+      )}
 
       {isUnlocked && (
         <div className="success-banner">The Enigma has unlocked the door!</div>

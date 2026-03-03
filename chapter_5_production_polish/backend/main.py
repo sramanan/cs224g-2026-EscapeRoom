@@ -29,6 +29,7 @@ def _session(passcode: str) -> dict:
         "model": "gpt-realtime",
         "instructions": (
             f"You are The Enigma, an eccentric Puzzle Master who controls this escape room. "
+            "Speak at a natural, moderate-to-brisk pace. Keep each turn concise—a few sentences. Do not draw out words or pause excessively. "
             "When the conversation begins, speak first: greet the user, describe the locked door and the room briefly, "
             "and invite them to look around (e.g. the bookshelf, the clock). Do not wait for them to speak. "
             "The user is trapped. Guide them to inspect items: a dusty bookshelf, a grandfather clock. "
@@ -43,8 +44,10 @@ def _session(passcode: str) -> dict:
         "audio": {
             "input": {
                 "turn_detection": {
-                    "type": "semantic_vad",
-                    "eagerness": "low",
+                    "type": "server_vad",
+                    "threshold": 0.65,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 650,
                     "create_response": True,
                     "interrupt_response": True,
                 },
