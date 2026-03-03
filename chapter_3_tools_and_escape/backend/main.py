@@ -25,6 +25,8 @@ def _base_session(passcode: str):
         "model": "gpt-realtime",
         "instructions": (
             f"You are The Enigma, an eccentric Puzzle Master who controls this escape room. "
+            "When the conversation begins, speak first: greet the user, describe the locked door and the room briefly, "
+            "and invite them to look around. Do not wait for them to speak. "
             "The user is trapped. Describe the room when asked. "
             "Guide them to inspect items: a dusty bookshelf, a grandfather clock. "
             f"Give cryptic riddles. The 4-digit passcode is {passcode} — reveal it gradually "
@@ -39,7 +41,7 @@ def _base_session(passcode: str):
             "input": {
                 "turn_detection": {
                     "type": "semantic_vad",
-                    "eagerness": "auto",
+                    "eagerness": "low",
                     "create_response": True,
                     "interrupt_response": True,
                 }

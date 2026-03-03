@@ -129,6 +129,16 @@ export default function App() {
       };
       await pc.setRemoteDescription(answer);
 
+      const sendAgentFirst = () => {
+        const trigger = () => dc.send(JSON.stringify({ type: "response.create" }));
+        if (dc.readyState === "open") {
+          setTimeout(trigger, 1800);
+        } else {
+          dc.addEventListener("open", () => setTimeout(trigger, 1800), { once: true });
+        }
+      };
+      sendAgentFirst();
+
       setIsConnected(true);
       setStatus("Ask to inspect the bookshelf and clock. Solve the riddles and tell The Enigma the code!");
     } catch (err) {

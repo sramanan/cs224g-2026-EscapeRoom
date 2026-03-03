@@ -104,6 +104,11 @@ Docs: [Realtime server controls (sideband)](https://developers.openai.com/api/do
 
 Run Chapter 5 to see the full experience.
 
+### Conversation behavior (Chapters 3–5)
+
+- **Agent speaks first:** When the call connects, the frontend sends `response.create` on the data channel after a short delay (~1.8s) so the connection and mic can stabilize. The Enigma then greets the user and describes the room without waiting for them to speak. The session instructions tell the model to speak first when the conversation begins.
+- **VAD and barge-in:** The session uses `semantic_vad` with **`eagerness: "low"`** so the model waits longer before treating the user as done—reducing false turn-taking and mid-sentence cuts. **`interrupt_response: true`** stays enabled so the user can still interrupt The Enigma (barge-in).
+
 ## Resetting a Chapter
 
 ```bash
@@ -174,6 +179,7 @@ The frontend is provided so you can focus on backend and Realtime API code. Here
 3. **WebRTC setup** — Creates an `RTCPeerConnection`, adds the mic track with `addTrack()`, and creates the `oai-events` data channel (before the offer so it’s part of the SDP).
 4. **SDP exchange** — `createOffer()` → `setLocalDescription()` → POST the SDP to `https://api.openai.com/v1/realtime/calls` with `Authorization: Bearer <token>`, then `setRemoteDescription(answer)`.
 5. **Remote audio** — The `ontrack` handler assigns `e.streams[0]` to a hidden `<audio autoplay>` element so The Enigma’s voice is played.
+6. **Agent speaks first (Ch 3–5)** — After the connection is up, the frontend sends `response.create` on the data channel (after a short delay so startup mic noise doesn’t trigger VAD). The model then delivers the opening greeting.
 
 ### Data channel
 
