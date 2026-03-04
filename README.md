@@ -2,6 +2,8 @@
 
 A voice AI workshop: the frontend shows a locked door with a red light. The AI is **The Enigma** — an eccentric, riddling Puzzle Master who controls the room. Talk to them, solve the riddles, and speak the correct 4-digit passcode to unlock the door (green light + success sound).
 
+**[Workshop slide deck](slide-deck/slides.html)**
+
 ## The Scenario
 
 - **You** are trapped. The door is locked; a red light glows.
